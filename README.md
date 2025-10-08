@@ -69,6 +69,11 @@ From the chat window you can:
 
 The model decides when to call tools, and outputs (like file contents or command results) are returned in chat.
 
+## App Demo
+
+https://github.com/user-attachments/assets/bc826f6a-bc7a-4018-b4fb-6217b914200d
+
+
 
 ## 🛑 Cleanup
 
