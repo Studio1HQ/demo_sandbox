@@ -3,8 +3,9 @@ from openai import OpenAI
 import os
 import json
 from novita_sandbox.code_interpreter import Sandbox
+import atexit
 
-# Create client
+# --- Initialization ---
 client = OpenAI(
     base_url="https://api.novita.ai/openai",
     api_key=os.environ["NOVITA_API_KEY"],
@@ -12,10 +13,10 @@ client = OpenAI(
 
 model = "meta-llama/llama-3.3-70b-instruct"
 
-# Initialize sandbox with working directory
+# Create sandbox
 sandbox = Sandbox.create(timeout=1200)
 
-# Define tool functions (no JSON serialization now)
+# --- Tool functions ---
 def read_file(path: str):
     print(f"[DEBUG] read_file called with path: {path}")
     try:
@@ -58,7 +59,7 @@ def run_commands(command: str):
         print(f"[DEBUG] run_commands error: {e}")
         return f"Error running command: {e}"
 
-# Register tools
+# --- Register tools ---
 tools = [
     {
         "type": "function",
@@ -67,9 +68,7 @@ tools = [
             "description": "Read contents of a file inside the sandbox",
             "parameters": {
                 "type": "object",
-                "properties": {
-                    "path": {"type": "string", "description": "File path in the sandbox"}
-                },
+                "properties": {"path": {"type": "string"}},
                 "required": ["path"],
             },
         },
@@ -82,8 +81,8 @@ tools = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "path": {"type": "string", "description": "File path in the sandbox"},
-                    "data": {"type": "string", "description": "Content to write"},
+                    "path": {"type": "string"},
+                    "data": {"type": "string"},
                 },
                 "required": ["path", "data"],
             },
@@ -121,22 +120,26 @@ tools = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "command": {
-                        "type": "string",
-                        "description": "The shell command to run, e.g. 'ls' or 'python main.py'",
-                    }
+                    "command": {"type": "string"},
                 },
                 "required": ["command"],
             },
         },
-    }
+    },
 ]
 
-# Persistent messages
+# --- Persistent chat messages ---
 messages = []
 
+# --- Global model setter ---
+def set_model(selected_model):
+    global model
+    model = selected_model
+    print(f"[DEBUG] Model switched to: {model}")
+    return f"✅ Model switched to **{model}**"
+
 def chat_fn(user_message, history):
-    global messages
+    global messages, model
     messages.append({"role": "user", "content": user_message})
 
     # Send to model
@@ -169,7 +172,6 @@ def chat_fn(user_message, history):
                 fn_result = run_commands(**fn_args)
             else:
                 fn_result = f"Error: Unknown tool {fn_name}"
-                print(f"[DEBUG] Unknown tool requested: {fn_name}")
 
             messages.append({
                 "tool_call_id": tool_call.id,
@@ -189,11 +191,57 @@ def chat_fn(user_message, history):
 
     return output_text
 
-with gr.Blocks() as demo:
-    gr.ChatInterface(chat_fn, title="Sandbox Chat Agent")
+# --- Command Interface function ---
+def execute_command(command):
+    if not command.strip():
+        return "⚠️ Please enter a command."
+    print(f"[DEBUG] Executing command from interface: {command}")
+    output = run_commands(command)
+    return f"```bash\n{output}\n```" if output else "✅ Command executed (no output)."
 
-# Graceful cleanup when the server stops
-import atexit
+# --- Gradio UI ---
+with gr.Blocks(title="Novita Sandbox App") as demo:
+    gr.Markdown("## 🧠 Novita Sandbox Agent")
+
+    with gr.Row(equal_height=True):
+        # Left: Chat Interface
+        with gr.Column(scale=2):
+            gr.Markdown("### 💬 Chat Interface")
+            gr.ChatInterface(chat_fn)
+
+        # Right: Command Interface
+        with gr.Column(scale=1):
+            gr.Markdown("### 💻 Command Interface")
+            
+            # Model selector
+            model_selector = gr.Dropdown(
+                label="Select Model",
+                choices=[
+                    "meta-llama/llama-3.3-70b-instruct",
+                    "deepseek/deepseek-v3.2-exp",
+                    "qwen/qwen3-coder-30b-a3b-instruct",
+                    "openai/gpt-oss-120b",
+                    "moonshotai/kimi-k2-instruct",
+                ],
+                value=model,
+                interactive=True,
+            )
+
+            model_status = gr.Markdown(f"✅ Current model: **{model}**")
+            model_selector.change(set_model, inputs=model_selector, outputs=model_status)
+
+            command_input = gr.Textbox(
+                label="Command",
+                placeholder="e.g., ls, python main.py",
+                lines=1,
+            )
+            with gr.Row():
+                run_btn = gr.Button("Run", variant="primary", scale=0)
+            command_output = gr.Markdown("Command output will appear here...")
+
+            run_btn.click(execute_command, inputs=command_input, outputs=command_output)
+
+# --- Cleanup on exit ---
 atexit.register(lambda: (sandbox.kill(), print("[DEBUG] Sandbox terminated. 👋")))
 
 if __name__ == "__main__":
