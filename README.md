@@ -71,7 +71,10 @@ The model decides when to call tools, and outputs (like file contents or command
 
 ## App Demo
 
-https://github.com/user-attachments/assets/bc826f6a-bc7a-4018-b4fb-6217b914200d
+
+https://github.com/user-attachments/assets/80e45d94-99a7-4324-8524-c76c7cbbee6c
+
+
 
 
 
