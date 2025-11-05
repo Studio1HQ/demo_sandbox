@@ -202,6 +202,10 @@ def execute_command(command):
 # --- Gradio UI ---
 with gr.Blocks(title="Novita Sandbox App") as demo:
     gr.Markdown("## 🧠 Novita Sandbox Agent")
+    gr.Markdown(
+    "This app is an AI-powered **code agent** that lets you chat with intelligent assistants backed by **Novita AI LLMs**. These agents can write, read, and execute code safely inside a **Novita sandbox**, providing a secure environment for running commands, testing scripts, and managing files, all through an intuitive chat interface with model selection and command execution built right in."
+)
+
 
     with gr.Row(equal_height=True):
         # Left: Chat Interface
@@ -246,3 +250,4 @@ atexit.register(lambda: (sandbox.kill(), print("[DEBUG] Sandbox terminated. 👋
 
 if __name__ == "__main__":
     demo.launch()
+
